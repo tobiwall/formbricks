@@ -6,8 +6,10 @@ import { QuestionMedia } from "@/components/general/question-media";
 import { Subheader } from "@/components/general/subheader";
 import { ScrollableContainer } from "@/components/wrappers/scrollable-container";
 import { getUpdatedTtc, useTtc } from "@/lib/ttc";
-import { useCallback, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { getLocalizedValue } from "@formbricks/lib/i18n/utils";
+import CountrySelector from '../country-selector/CountrySelector';
+import CountryDropdown from '../country-selector/CountryDropdown';
 import { type TResponseData, type TResponseTtc } from "@formbricks/types/responses";
 import type { TSurveyContactInfoQuestion, TSurveyQuestionId } from "@formbricks/types/surveys/types";
 
@@ -42,6 +44,20 @@ export function ContactInfoQuestion({
   autoFocusEnabled,
 }: ContactInfoQuestionProps) {
   const [startTime, setStartTime] = useState(performance.now());
+  //-------------------------------- start Country selector Dropdown -------------------------------------//
+  const [countryCode, setCountryCode] = useState('click...');
+  const [code, setCode] = useState('');
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const handleCountryCodeChange = (newCountryFlag: String, newCountryCode: string) => { setCountryCode(newCountryFlag + " " + newCountryCode); setCode(newCountryCode); };
+  const toggleDropdown = () => {
+    setShowCountryDropdown(!showCountryDropdown);
+    const phoneField = document.getElementById("inputPhone") as HTMLInputElement;
+    if (phoneField && showCountryDropdown) {
+      phoneField.focus();
+    }
+  };
+  //---------------------------------- end Country selector Dropdown --------------------------------------//
+
   const isMediaAvailable = question.imageUrl || question.videoUrl;
   const formRef = useRef<HTMLFormElement>(null);
   useTtc(question.id, ttc, setTtc, startTime, setStartTime, question.id === currentQuestionId);
@@ -83,7 +99,7 @@ export function ContactInfoQuestion({
       if (field.id === fieldId) {
         return fieldValue;
       }
-      const existingValue = safeValue[fields.findIndex((f) => f.id === field.id)] || "";
+      let existingValue = safeValue[fields.findIndex((f) => f.id === field.id)] || "";
       return field.show ? existingValue : "";
     });
     onChange({ [question.id]: newValue });
@@ -93,11 +109,18 @@ export function ContactInfoQuestion({
     e.preventDefault();
     const updatedTtc = getUpdatedTtc(ttc, question.id, performance.now() - startTime);
     setTtc(updatedTtc);
-    const containsAllEmptyStrings = safeValue.length === 5 && safeValue.every((item) => item.trim() === "");
+    let containsAllEmptyStrings = safeValue.length === 5 && safeValue.every((item) => item.trim() === "");
+    const finalValues = safeValue.map((value, index) => {
+      const field = fields[index];
+      if (field.id === "phone") {
+        return code + " " + value;
+      }
+      return value;
+    });
     if (containsAllEmptyStrings) {
       onSubmit({ [question.id]: [] }, updatedTtc);
     } else {
-      onSubmit({ [question.id]: safeValue }, updatedTtc);
+      onSubmit({ [question.id]: finalValues }, updatedTtc);
     }
   };
 
@@ -110,6 +133,39 @@ export function ContactInfoQuestion({
     },
     [question.id, autoFocusEnabled, currentQuestionId]
   );
+
+  useEffect(() => {
+    if (!showCountryDropdown) return;
+    const dropdownContainer = document.getElementById("dropdownContainer");
+    const dropdownButton = document.getElementById("dropdownButton");
+    const handleClickOutside = (event: MouseEvent) => {
+      const isClickInsideDropdown =
+        dropdownContainer?.contains(event.target as Node) ||
+        dropdownButton?.contains(event.target as Node);
+      if (!isClickInsideDropdown) {
+        setShowCountryDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCountryDropdown]);
+
+  useEffect(() => {
+    if (!showCountryDropdown) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const phoneField = document.getElementById("inputPhone") as HTMLInputElement;
+        if (phoneField) {
+          phoneField.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showCountryDropdown]);
 
   return (
     <form key={question.id} onSubmit={handleSubmit} className="fb-w-full" ref={formRef}>
@@ -146,28 +202,46 @@ export function ContactInfoQuestion({
                 return false;
               };
 
+              let pattern;
+              let title;
+              if (code == "") {
+                pattern = "^\\+[0-9]+$";
+                title = "Please fill in your country-code (+123456789)"
+              } else {
+                pattern = "^[0-9]+$";
+                title = "You allready selected a country. Please type just numbers (123456789)"
+              }
               let inputType = "text";
               if (field.id === "email") {
                 inputType = "email";
-              } else if (field.id === "phone") {
-                inputType = "number";
               }
 
               return (
                 field.show && (
-                  <Input
-                    ref={index === 0 ? contactInfoRef : null}
-                    key={field.id}
-                    placeholder={isFieldRequired() ? `${field.placeholder}*` : field.placeholder}
-                    required={isFieldRequired()}
-                    value={safeValue[index] || ""}
-                    className="fb-py-3"
-                    type={inputType}
-                    onChange={(e) => {
-                      handleChange(field.id, e.currentTarget.value);
-                    }}
-                    tabIndex={isCurrent ? 0 : -1}
-                  />
+                  <div>
+                    <div style={{ display: "flex" }} key={field.id}>
+                      {field.id === "phone" && (
+                        <CountrySelector currentCountry={countryCode} onToggleDropdown={toggleDropdown} />
+                      )}
+                      <Input
+                        style={{ zIndex: "1" }}
+                        ref={index === 0 ? contactInfoRef : null}
+                        key={field.id}
+                        placeholder={isFieldRequired() ? `${field.placeholder}*` : field.placeholder}
+                        required={isFieldRequired()}
+                        value={safeValue[index] || ""}
+                        className="fb-py-3"
+                        type={inputType}
+                        pattern={field.id === "phone" ? pattern : undefined}
+                        title={title}
+                        onChange={(e) => {
+                          handleChange(field.id, e.currentTarget.value);
+                        }}
+                        tabIndex={isCurrent ? 0 : -1}
+                        id={field.id === "phone" ? "inputPhone" : undefined}
+                      />
+                    </div>
+                  </div>
                 )
               );
             })}
@@ -193,6 +267,7 @@ export function ContactInfoQuestion({
           />
         )}
       </div>
+      <CountryDropdown show={showCountryDropdown} onSelectCountry={handleCountryCodeChange} onToggleDropdown={toggleDropdown} />
     </form>
   );
 }

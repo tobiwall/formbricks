@@ -259,11 +259,10 @@ const CountryDropdown = ({ show, onSelectCountry, onToggleDropdown }: CountryDro
     };
 
     const handleKeyPress = (e: KeyboardEvent) => {
-        const dropdown = dropdownRef.current;
-        let firstButton = dropdown?.querySelector("button");
-        const focusedButton = document.activeElement as HTMLButtonElement;
-
         if (e.key === 'Enter') {
+            const dropdown = dropdownRef.current;
+            let firstButton = dropdown?.querySelector("button");
+            const focusedButton = document.activeElement as HTMLButtonElement;
             e.preventDefault();
             if (searchTerm.length == 0) {
                 handleCountrySelect("", "");
@@ -275,12 +274,6 @@ const CountryDropdown = ({ show, onSelectCountry, onToggleDropdown }: CountryDro
             }
         }
     };
-
-    useEffect(() => {
-        document.addEventListener('keydown', handleKeyPress);
-        return () => { document.removeEventListener('keydown', handleKeyPress); };
-    }, [searchTerm]);
-
 
     const handleCountrySelect = (countryFlag: string, countryCode: string) => {
         onSelectCountry(countryFlag, countryCode);

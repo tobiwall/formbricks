@@ -44,7 +44,8 @@ export function ContactInfoQuestion({
   autoFocusEnabled,
 }: ContactInfoQuestionProps) {
   const [startTime, setStartTime] = useState(performance.now());
-  //-------------------------------- start Country selector Dropdown -------------------------------------//
+
+  // Countryselector dropdown for phonenumber
   const [countryCode, setCountryCode] = useState('click...');
   const [code, setCode] = useState('');
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
@@ -56,7 +57,6 @@ export function ContactInfoQuestion({
       phoneField.focus();
     }
   };
-  //---------------------------------- end Country selector Dropdown --------------------------------------//
 
   const isMediaAvailable = question.imageUrl || question.videoUrl;
   const formRef = useRef<HTMLFormElement>(null);
@@ -99,7 +99,7 @@ export function ContactInfoQuestion({
       if (field.id === fieldId) {
         return fieldValue;
       }
-      let existingValue = safeValue[fields.findIndex((f) => f.id === field.id)] || "";
+      const existingValue = safeValue[fields.findIndex((f) => f.id === field.id)] || "";
       return field.show ? existingValue : "";
     });
     onChange({ [question.id]: newValue });
@@ -134,37 +134,34 @@ export function ContactInfoQuestion({
     [question.id, autoFocusEnabled, currentQuestionId]
   );
 
+  // useEffect onclick outside the dropdown for closing dropdown
+  // focus on phone-input after selecting a country
   useEffect(() => {
     if (!showCountryDropdown) return;
     const dropdownContainer = document.getElementById("dropdownContainer");
     const dropdownButton = document.getElementById("dropdownButton");
+
     const handleClickOutside = (event: MouseEvent) => {
       const isClickInsideDropdown =
         dropdownContainer?.contains(event.target as Node) ||
         dropdownButton?.contains(event.target as Node);
-      if (!isClickInsideDropdown) {
-        setShowCountryDropdown(false);
-      }
+      if (!isClickInsideDropdown) { setShowCountryDropdown(false); }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showCountryDropdown]);
 
-  useEffect(() => {
-    if (!showCountryDropdown) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const phoneField = document.getElementById("inputPhone") as HTMLInputElement;
-        if (phoneField) {
-          phoneField.focus();
-        }
+        if (phoneField) { phoneField.focus(); }
       }
     };
+
+    document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
-    };
+    }
   }, [showCountryDropdown]);
 
   return (
